@@ -11,7 +11,10 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, addDoc, setDoc, onSnapshot, collection, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, addDoc, setDoc, onSnapshot, collection, query, orderBy, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Mengaktifkan log debug untuk Firestore (Wajib)
+        setLogLevel('Debug');
 
         // Global variables for Firebase (MANDATORY USE)
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -38,8 +41,9 @@
                     userId = user ? user.uid : crypto.randomUUID();
                     window.userId = userId; // Make userId globally accessible
                     console.log("Firebase Auth Ready. User ID:", userId);
+                    // Tampilkan User ID di UI (Wajib untuk aplikasi multi-user)
+                    document.getElementById('user-id-display').textContent = `ID Tamu Anda: ${userId}`;
                     if (user) {
-                        document.getElementById('user-id-display').textContent = `ID Tamu Anda: ${userId}`;
                         loadUcapan();
                     }
                 });
@@ -52,6 +56,7 @@
         // --- FIREBASE FIRESTORE FUNCTIONS (RSVP & UCAPAN) ---
 
         // Collection path for public data (Guestbook)
+        // /artifacts/{appId}/public/data/wedding_guests
         const GUESTBOOK_COLLECTION_PATH = `artifacts/${appId}/public/data/wedding_guests`;
 
         /**
@@ -63,8 +68,10 @@
             
             if (!db || !userId) {
                 console.error("Database or User ID not ready.");
-                document.getElementById('status-message').textContent = 'Error: Sistem belum siap. Coba lagi.';
-                document.getElementById('status-message').classList.remove('hidden');
+                const statusMessage = document.getElementById('status-message');
+                statusMessage.textContent = 'Error: Sistem belum siap. Coba lagi.';
+                statusMessage.classList.remove('hidden', 'text-green-600');
+                statusMessage.classList.add('text-red-600');
                 return;
             }
 
@@ -75,8 +82,7 @@
 
             if (!name || !attending) {
                 statusMessage.textContent = 'Nama dan Status Kehadiran wajib diisi.';
-                statusMessage.classList.remove('hidden');
-                statusMessage.classList.remove('text-green-600');
+                statusMessage.classList.remove('hidden', 'text-green-600');
                 statusMessage.classList.add('text-red-600');
                 return;
             }
@@ -114,7 +120,7 @@
                 return;
             }
             
-            // Mengurutkan berdasarkan timestamp terbaru
+            // Menggunakan onSnapshot untuk real-time update
             const q = query(collection(db, GUESTBOOK_COLLECTION_PATH), orderBy('timestamp', 'desc'));
             const ucapanList = document.getElementById('ucapan-list');
 
@@ -122,19 +128,21 @@
                 let html = '';
                 snapshot.forEach(doc => {
                     const data = doc.data();
-                    const date = data.timestamp ? new Date(data.timestamp.seconds * 1000).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Baru saja';
+                    // Format timestamp
+                    const date = data.timestamp && data.timestamp.seconds ? new Date(data.timestamp.seconds * 1000).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Baru saja';
                     const hadirText = data.attending ? 
                         '<span class="text-green-600 font-semibold">Hadir</span>' : 
                         '<span class="text-yellow-600 font-semibold">Berhalangan</span>';
                     
                     html += `
-                        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 animate-fadeInScale">
                             <div class="flex items-center justify-between mb-2">
                                 <p class="text-lg font-bold text-gray-800">${data.name}</p>
                                 <p class="text-xs text-gray-500">${date}</p>
                             </div>
                             <p class="text-sm text-gray-700 mb-2">${data.ucapan}</p>
                             <p class="text-xs text-gray-500">Status: ${hadirText}</p>
+                            <p class="text-xs text-gray-400 mt-1">ID Pengirim: ${data.userId}</p>
                         </div>
                     `;
                 });
@@ -144,7 +152,6 @@
                 ucapanList.innerHTML = '<p class="text-center text-red-500">Gagal memuat ucapan tamu.</p>';
             });
         };
-
 
         initFirebase();
     </script>
@@ -157,7 +164,6 @@
         :root {
             --color-white-main: #FFFFFF;
             --color-cream-light: #FBF9F6; /* Main Background - Lebih terang */
-             background-image: "";
             --color-gold-accent: #B89955; /* Muted Gold Tone */
             --color-text-dark: #1F2937;
         }
@@ -175,12 +181,30 @@
         .text-gold-accent { color: var(--color-gold-accent); }
         .border-gold-accent { border-color: var(--color-gold-accent); }
 
-        /* Custom Parallax Effect for Hero */
+        /* Penggunaan Latar Belakang - Hanya digunakan untuk latar utama dan layar pembuka */
+        /* FILE: img/Background.JPG */
         #hero-section {
-            background-image: url('img/Background.JPG');
+            background-image: url('img/Background.JPG'); 
             background-size: cover;
             background-position: center center;
             background-attachment: fixed; /* Parallax effect */
+        }
+        
+        /* Custom Keyframes for elegant entrance */
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.95) translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+        
+        /* Class untuk animasi elemen di layar pembuka */
+        .intro-text-animate {
+            animation: fadeInScale 1s ease-out both;
         }
 
         /* Full-Screen Opening Overlay */
@@ -190,7 +214,11 @@
             left: 0;
             width: 100%;
             height: 100vh;
-            background-color: var(--color-cream-light); 
+            /* Latar belakang JPG sesuai permintaan (dipisahkan dari foto konten) */
+            background-image: url('img/DSCF9129 (1).JPG'); 
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
             z-index: 10000; 
             display: flex;
             flex-direction: column;
@@ -224,7 +252,7 @@
             border-radius: 0.5rem;
             font-weight: 600;
             transition: background-color 0.3s ease, transform 0.2s ease;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Minimalist shadow */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); 
         }
         .btn-gold:hover {
             background-color: #a0854d; /* darker gold */
@@ -237,7 +265,7 @@
             padding-bottom: 75%; 
             height: 0;
             overflow: hidden;
-            border-radius: 0.75rem; /* Lebih membulat */
+            border-radius: 0.75rem; 
         }
         .map-container iframe {
             position: absolute;
@@ -261,32 +289,48 @@
         body.no-scroll {
             overflow: hidden;
         }
+        
+        /* Ensure mobile navigation doesn't cause CLS */
+        .mobile-nav-placeholder {
+            height: 4rem; /* Tinggi nav mobile */
+            display: block;
+            visibility: hidden;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body class="antialiased no-scroll">
 
-    <!-- OVERLAY LAYAR PEMBUKA -->
+    <!-- OVERLAY LAYAR PEMBUKA (Halaman Sampul) -->
     <div id="opening-screen" class="p-8">
-        <div class="max-w-md mx-auto">
-            <p class="text-lg font-elegant tracking-widest text-gold-accent mb-2">The Wedding of</p>
-            <h1 class="text-7xl md:text-9xl font-elegant font-bold mb-4 text-gray-900 leading-none">
+        <!-- Overlay gelap/transparan untuk kontras -->
+        <div class="absolute inset-0 bg-black bg-opacity-50"></div>
+        
+        <!-- Konten Pembuka dengan Staggered Animation -->
+        <div class="max-w-md mx-auto relative z-10 text-center text-white p-6">
+            <p class="text-lg font-elegant tracking-widest text-gold-accent mb-2 intro-text-animate" style="animation-delay: 0s;">The Wedding of</p>
+            <h1 class="text-7xl md:text-9xl font-elegant font-bold mb-4 leading-none drop-shadow-lg intro-text-animate" style="animation-delay: 0.2s;">
                 DIO <span class="text-gold-accent">&</span> DERA
             </h1>
-            <p class="text-md md:text-xl font-medium mb-8 text-gray-700">
+            <p class="text-md md:text-xl font-medium mb-8 drop-shadow text-white intro-text-animate" style="animation-delay: 0.4s;">
                 Minggu, 02 November 2025
             </p>
 
             <!-- Tombol Buka Undangan -->
-            <button id="open-invitation-btn" class="btn-gold shadow-lg animate-pulse text-lg py-3 px-8 transition duration-500">
+            <button 
+                id="open-invitation-btn" 
+                class="btn-gold shadow-2xl animate-pulse text-lg py-3 px-8 transition duration-500 hover:animate-none intro-text-animate" style="animation-delay: 0.6s;"
+            >
                 Buka Undangan
             </button>
-            <p class="text-xs text-gray-500 mt-4 italic">
+            <p class="text-xs text-gray-200 mt-6 italic intro-text-animate" style="animation-delay: 0.8s;">
                 Kepada Yth. Bapak/Ibu/Saudara/i,
             </p>
+            <!-- Element untuk menampilkan nama tamu -->
+            <p id="guest-name" class="text-sm font-semibold text-gold-accent mt-1 intro-text-animate" style="animation-delay: 1s;"></p>
         </div>
     </div>
     <!-- AKHIR OVERLAY LAYAR PEMBUKA -->
-
 
     <!-- Navigasi Bawah (Hanya muncul di mobile) -->
     <nav class="fixed bottom-0 left-0 right-0 bg-white shadow-2xl z-50 md:hidden border-t border-gray-100">
@@ -313,6 +357,7 @@
             </a>
         </div>
     </nav>
+    <div class="mobile-nav-placeholder md:hidden"></div>
     
     <!-- Tombol Audio Play/Pause -->
     <button id="audioControlBtn" class="fixed top-4 right-4 z-50 w-10 h-10 rounded-full bg-gold-accent text-white shadow-lg flex items-center justify-center transition-all duration-300 hover:scale-110">
@@ -327,16 +372,17 @@
         <!-- Overlay untuk kontras -->
         <div class="absolute inset-0 bg-black bg-opacity-40"></div>
         
-        <div class="relative z-10 text-white fade-in-on-scroll">
-            <p class="text-xl font-elegant mb-3 tracking-widest text-gold-accent">We Are Getting Married</p>
-            <h2 class="text-7xl md:text-9xl font-elegant font-bold mb-4 leading-tight">
+        <div class="relative z-10 text-white">
+            <!-- Elemen Hero Utama (Akan dianimasikan oleh JS saat overlay hilang) -->
+            <p class="text-xl font-elegant mb-3 tracking-widest text-gold-accent opacity-0" id="hero-title">We Are Getting Married</p>
+            <h2 class="text-7xl md:text-9xl font-elegant font-bold mb-4 leading-tight opacity-0" id="hero-names">
                 DIO & DERA
             </h2>
-            <p class="text-xl md:text-2xl font-light mb-8">
+            <p class="text-xl md:text-2xl font-light mb-8 opacity-0" id="hero-date">
                 02 November 2025
             </p>
             
-            <div class="mt-12">
+            <div class="mt-12 opacity-0" id="hero-scroll-prompt">
                  <p class="text-sm text-gray-200 uppercase tracking-widest">Geser ke bawah kalo ikak kepo.</p>
             </div>
            
@@ -351,34 +397,38 @@
         <section id="story" class="text-center pt-16 pb-12 fade-in-on-scroll">
             
             <!-- Countdown Timer -->
-            <h3 class="text-2xl font-elegant font-bold text-gray-800 mb-6">Menghitung Hari</h3>
+            <h3 class="text-2xl font-elegant font-bold text-gray-800 mb-6 fade-in-on-scroll">Menghitung Hari</h3>
             
             <div id="countdown-main" class="flex justify-center space-x-3 md:space-x-6 mb-12 text-gray-100 max-w-lg mx-auto">
-                <div class="p-4 md:p-5 bg-gold-accent rounded-xl shadow-md w-1/4">
+                <!-- Countdown Box 1: Hari (Staggered Delay 0.1s) -->
+                <div class="p-4 md:p-5 bg-gold-accent rounded-xl shadow-md w-1/4 fade-in-on-scroll" style="transition-delay: 0.1s;">
                     <span id="days-main" class="text-3xl md:text-5xl font-bold font-elegant">00</span>
                     <p class="text-xs mt-1 text-gray-100">Hari</p>
                 </div>
-                <div class="p-4 md:p-5 bg-gold-accent rounded-xl shadow-md w-1/4">
+                <!-- Countdown Box 2: Jam (Staggered Delay 0.2s) -->
+                <div class="p-4 md:p-5 bg-gold-accent rounded-xl shadow-md w-1/4 fade-in-on-scroll" style="transition-delay: 0.2s;">
                     <span id="hours-main" class="text-3xl md:text-5xl font-bold font-elegant">00</span>
                     <p class="text-xs mt-1 text-gray-100">Jam</p>
                 </div>
-                <div class="p-4 md:p-5 bg-gold-accent rounded-xl shadow-md w-1/4">
+                <!-- Countdown Box 3: Menit (Staggered Delay 0.3s) -->
+                <div class="p-4 md:p-5 bg-gold-accent rounded-xl shadow-md w-1/4 fade-in-on-scroll" style="transition-delay: 0.3s;">
                     <span id="minutes-main" class="text-3xl md:text-5xl font-bold font-elegant">00</span>
                     <p class="text-xs mt-1 text-gray-100">Menit</p>
                 </div>
-                <div class="p-4 md:p-5 bg-gold-accent rounded-xl shadow-md w-1/4">
+                <!-- Countdown Box 4: Detik (Staggered Delay 0.4s) -->
+                <div class="p-4 md:p-5 bg-gold-accent rounded-xl shadow-md w-1/4 fade-in-on-scroll" style="transition-delay: 0.4s;">
                     <span id="seconds-main" class="text-3xl md:text-5xl font-bold font-elegant">00</span>
                     <p class="text-xs mt-1 text-gray-100">Detik</p>
                 </div>
             </div>
             <!-- AKHIR HITUNG MUNDUR -->
 
-            <h3 class="text-4xl font-elegant font-bold text-gold-accent mb-6">بِسْمِ اللّٰهِ الرَّحْمٰنِ الرَّحِيْمِ</h3>
-            <p class="text-gray-600 max-w-2xl mx-auto mb-10 text-base italic">
+            <h3 class="text-4xl font-elegant font-bold text-gold-accent mb-6 fade-in-on-scroll" style="transition-delay: 0.5s;">بِسْمِ اللّٰهِ الرَّحْمٰنِ الرَّحِيْمِ</h3>
+            <p class="text-gray-600 max-w-2xl mx-auto mb-10 text-base italic fade-in-on-scroll" style="transition-delay: 0.6s;">
                 "Dan di antara tanda-tanda kekuasaan-Nya ialah Dia menciptakan untukmu pasangan-pasangan dari jenismu sendiri, supaya kamu cenderung dan merasa tenteram kepadanya, dan dijadikan-Nya di antaramu rasa kasih dan sayang. Sesungguhnya pada yang demikian itu benar-benar terdapat tanda-tanda bagi kaum yang berfikir." (QS. Ar-Rum: 21)
             </p>
             
-            <p class="text-lg text-gray-700 font-medium max-w-3xl mx-auto">
+            <p class="text-lg text-gray-700 font-medium max-w-3xl mx-auto fade-in-on-scroll" style="transition-delay: 0.7s;">
                 Dengan memohon rahmat dan ridho Allah SWT, kami bermaksud mengundang Bapak/Ibu/Saudara/i untuk hadir dalam acara pernikahan kami.
             </p>
         </section>
@@ -391,8 +441,9 @@
             
             <div class="flex flex-col items-center justify-center space-y-16">
                 
-                <!-- Profil 1 (Wanita): DERA (Di Atas) -->
-                <div class="profile-card w-full max-w-sm flex flex-col items-center p-8 bg-white rounded-xl shadow-lg border-t-2 border-gold-accent transition duration-300">
+                <!-- Profil 1 (Wanita): DERA -->
+                <div class="profile-card w-full max-w-sm flex flex-col items-center p-8 bg-white rounded-xl shadow-lg border-t-2 border-gold-accent transition duration-300 fade-in-on-scroll" style="transition-delay: 0.1s;">
+                    <!-- Foto Konten - Berbeda dari Background -->
                     <img
                         class="w-40 h-40 object-cover rounded-full border-4 border-gold-accent p-1 mb-6"
                         src="img/DSCF9536 (1).JPG"
@@ -407,21 +458,22 @@
                 </div>
 
                 <!-- Simbol Penghubung -->
-                <div class="flex flex-col items-center justify-center text-5xl text-gold-accent">
+                <div class="flex flex-col items-center justify-center text-5xl text-gold-accent fade-in-on-scroll" style="transition-delay: 0.3s;">
                     <span class="font-elegant">&</span>
                 </div>
 
-                <!-- Profil 2 (Pria): DIO (Di Bawah) -->
-                <div class="profile-card w-full max-w-sm flex flex-col items-center p-8 bg-white rounded-xl shadow-lg border-t-2 border-gray-400 transition duration-300">
+                <!-- Profil 2 (Pria): DIO -->
+                <div class="profile-card w-full max-w-sm flex flex-col items-center p-8 bg-white rounded-xl shadow-lg border-t-2 border-gray-400 transition duration-300 fade-in-on-scroll" style="transition-delay: 0.5s;">
+                    <!-- Foto Konten - Berbeda dari Background -->
                     <img
                         class="w-40 h-40 object-cover rounded-full border-4 border-gray-400 p-1 mb-6"
                         src="img/DSCF9548 (1).JPG"
-                        alt="img/DSCF9548 (1).JPG"
+                        alt="Foto DIO"
                         onerror="onImageError(this)"
                     >
-                    <h2 class="text-3xl font-elegant font-bold text-gray-"> DIO ANDIKA PRATAMA</h2>
-                    <p class="text-sm text-gray-400 mb-4">Putra Pertama dari Bpk. (Alm) Suhendi Zainudin & Ibu Kartina</p>
-                    <p class="text-center text-gray-500 text-sm italic border-t pt-4 mt-2">
+                    <h2 class="text-3xl font-elegant font-bold text-gray-900"> DIO ANDIKA PRATAMA</h2>
+                    <p class="text-sm text-gray-500 mb-4">Putra Pertama dari Bpk. (Alm) Suhendi Zainudin & Ibu Kartina</p>
+                    <p class="text-center text-gray-600 text-sm italic border-t pt-4 mt-2">
                         "Setiap kisah cinta yang hebat, dimulai dengan sebuah janji."
                     </p>
                 </div>
@@ -434,22 +486,20 @@
                 Waktu & Tempat
             </h2>
             
-            
-
-                
+            <div class="space-y-6">
                    <!-- Card Resepsi -->
-                <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-gold-accent">
+                <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-gold-accent fade-in-on-scroll" style="transition-delay: 0.2s;">
                     <div class="flex items-center space-x-4 mb-4">
                          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gold-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-                        <h3 class="text-2xl font-elegant font-bold text-gray-900">resepsi Pernikahan</h3>
+                        <h3 class="text-2xl font-elegant font-bold text-gray-900">Resepsi Pernikahan</h3>
                     </div>
                     <p class="text-xl font-semibold text-gray-800 mb-2">Minggu, 02 November 2025</p>
                     <p class="text-lg text-gray-600 mb-4">Pukul 19:30 WIB - Selesai</p>
                     
                     <p class="font-bold text-gray-900">Lokasi:</p>
-                    <p class="text-gray-700 mb-4">kedai museum pangkal pinang</p>
+                    <p class="text-gray-700 mb-4">Kedai Museum Pangkal Pinang</p>
                     
-                    <a href="https://calendar.google.com/calendar/r/event?dates=20251102T090000Z/20251102T100000Z&text=Resepsi+Pernikahan+DIO+%26+DERA&location=kedai+museum+pangkal+pinang&details=Acara+Resepsi+DIO+%26+DERA" target="_blank" class="btn-gold text-sm mt-2 block w-full text-center">
+                    <a href="https://calendar.google.com/calendar/r/event?dates=20251102T123000Z/20251102T150000Z&text=Resepsi+Pernikahan+DIO+%26+DERA&location=kedai+museum+pangkal+pinang&details=Acara+Resepsi+DIO+%26+DERA" target="_blank" class="btn-gold text-sm mt-2 block w-full text-center">
                         <span class="inline-block mr-1">Simpan Tanggal</span>
                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
                     </a>
@@ -466,9 +516,9 @@
             <h2 class="text-4xl font-elegant font-bold text-center mb-6 text-gray-800">
                 Peta Lokasi
             </h2>
-            <p class="text-center text-gray-600 mb-8">kedai museum pangkal pinang</p>
+            <p class="text-center text-gray-600 mb-8">Kedai Museum Pangkal Pinang</p>
             
-            <div class="map-container shadow-xl border-4 border-gold-accent/50 rounded-xl">
+            <div class="map-container shadow-xl border-4 border-gold-accent/50 rounded-xl fade-in-on-scroll" style="transition-delay: 0.2s;">
                 <iframe 
                     src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15949.72265213614!2d106.1265698380848!3d-2.128711881773037!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e22c1615c4d372f%3A0x7d28712f27022026!2sPangkal%20Pinang%2C%20Bangka%20Belitung%20Islands!5e0!3m2!1sen!2sid!4v1678888888888!5m2!1sen!2sid" 
                     allowfullscreen="" 
@@ -477,7 +527,7 @@
                 ></iframe>
             </div>
             
-            <div class="mt-8 text-center">
+            <div class="mt-8 text-center fade-in-on-scroll" style="transition-delay: 0.4s;">
                  <a href="https://maps.app.goo.gl/81xBZDgA2QFC18wTA" target="_blank" class="btn-gold text-base">
                     Buka di Google Maps
                 </a>
@@ -491,19 +541,18 @@
             </h2>
             
           <div class="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-<div class="aspect-square overflow-hidden rounded-xl shadow-lg hover:shadow-xl transition duration-300">
- <img class="w-full h-full object-cover transform hover:scale-105 transition duration-500" src="img/1.JPG" alt="Galeri 1">
-</div>
- <div class="aspect-square overflow-hidden rounded-xl shadow-lg hover:shadow-xl transition duration-300">
-<img class="w-full h-full object-cover transform hover:scale-105 transition duration-500" src="img/2.JPG" alt="Galeri 2">
- </div>
- <div class="aspect-square overflow-hidden rounded-xl shadow-lg hover:shadow-xl transition duration-300">
-<img class="w-full h-full object-cover transform hover:scale-105 transition duration-500" src="img/3.JPG" alt="Galeri 3"></div>
-<div class="aspect-square overflow-hidden rounded-xl shadow-lg hover:shadow-xl transition duration-300">
- <img class="w-full h-full object-cover transform hover:scale-105 transition duration-500" src="img/4.JPG" alt="Galeri 4">
-</div>
- </section>
-</div>
+                <!-- Foto Konten Galeri - Berbeda dari Background -->
+                <div class="aspect-square overflow-hidden rounded-xl shadow-lg hover:shadow-xl transition duration-300 fade-in-on-scroll" style="transition-delay: 0.1s;">
+                 <img class="w-full h-full object-cover transform hover:scale-105 transition duration-500" src="img/1.JPG" alt="Galeri 1" onerror="onImageError(this)">
+                </div>
+                 <div class="aspect-square overflow-hidden rounded-xl shadow-lg hover:shadow-xl transition duration-300 fade-in-on-scroll" style="transition-delay: 0.2s;">
+                <img class="w-full h-full object-cover transform hover:scale-105 transition duration-500" src="img/2.JPG" alt="Galeri 2" onerror="onImageError(this)">
+                 </div>
+                 <div class="aspect-square overflow-hidden rounded-xl shadow-lg hover:shadow-xl transition duration-300 fade-in-on-scroll" style="transition-delay: 0.3s;">
+                <img class="w-full h-full object-cover transform hover:scale-105 transition duration-500" src="img/3.JPG" alt="Galeri 3" onerror="onImageError(this)"></div>
+                <div class="aspect-square overflow-hidden rounded-xl shadow-lg hover:shadow-xl transition duration-300 fade-in-on-scroll" style="transition-delay: 0.4s;">
+                 <img class="w-full h-full object-cover transform hover:scale-105 transition duration-500" src="img/4.JPG" alt="Galeri 4" onerror="onImageError(this)">
+                </div>
             </div>
         </section>
 
@@ -512,14 +561,14 @@
             <h2 class="text-4xl font-elegant font-bold text-center mb-4 text-gold-accent">
                 Buku Tamu 
             </h2>
-            <p class="text-center text-gray-600 mb-8 max-w-lg mx-auto">
+            <p class="text-center text-gray-600 mb-4 max-w-lg mx-auto">
                 Konfirmasi kehadiran dan tinggalkan pesan terbaik Anda di bawah ini.
             </p>
 
-            <p id="user-id-display" class="text-center text-xs text-gray-400 mb-4"></p>
+            <p id="user-id-display" class="text-center text-xs text-gray-400 mb-6"></p>
             
             <!-- RSVP Form -->
-            <form onsubmit="submitUcapan(event)" class="space-y-5 max-w-xl mx-auto">
+            <form onsubmit="submitUcapan(event)" class="space-y-5 max-w-xl mx-auto fade-in-on-scroll" style="transition-delay: 0.2s;">
                 <div>
                     <label for="guest_name" class="block text-sm font-medium text-gray-700">Nama Anda *</label>
                     <input type="text" id="guest_name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-3 border focus:ring-gold-accent focus:border-gold-accent">
@@ -547,7 +596,7 @@
             </form>
             
             <!-- Ucapan Tamu List -->
-            <div class="mt-12">
+            <div class="mt-12 fade-in-on-scroll" style="transition-delay: 0.4s;">
                 <h3 class="text-2xl font-elegant font-bold text-gray-800 border-b pb-3 mb-6">Daftar Ucapan Tamu</h3>
                 <div id="ucapan-list" class="space-y-4 max-h-96 overflow-y-auto pr-2">
                     <!-- Ucapan akan dimuat di sini oleh JavaScript -->
@@ -567,14 +616,12 @@
             
             <div class="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
           <!-- Rekening DIO (MANDIRI) -->
-        <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-gold-accent/70">
+        <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-gold-accent/70 fade-in-on-scroll" style="transition-delay: 0.1s;">
             
-            <!-- Logo MANDIRI (Menggunakan Placeholder PNG/Gambar) -->
-            <!-- Ganti URL di bawah (https://placehold.co/...) dengan URL logo Mandiri Anda yang sebenarnya (misal: "https://yourwebsite.com/mandiri-logo.png") -->
-            <img src="img/Bank_Mandiri_logo_2016.svg.png" 
-                 onerror="this.onerror=null;this.src='https://placehold.co/32x32/004c8f/ffffff?text=BANK'" 
+            <!-- Logo MANDIRI Placeholder -->
+            <img src="https://placehold.co/32x32/004c8f/ffffff?text=MANDIRI" 
                  alt="Logo Mandiri" 
-                 class="h-8 w-8 object-contain mb-2"/>
+                 class="h-8 w-8 object-contain mb-2 mx-auto"/>
             
             <p class="text-xl font-elegant font-bold mb-2 text-gray-900">MANDIRI</p>
             <p class="text-sm text-gray-500">A.N. DIO ANDIKA PRATAMA</p>
@@ -585,14 +632,12 @@
         </div>
 
         <!-- Rekening DERA (BCA) -->
-        <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-gold-accent/70">
+        <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-gold-accent/70 fade-in-on-scroll" style="transition-delay: 0.3s;">
             
-            <!-- Logo BCA (Menggunakan Placeholder PNG/Gambar) -->
-            <!-- Ganti URL di bawah (https://placehold.co/...) dengan URL logo BCA Anda yang sebenarnya (misal: "https://yourwebsite.com/bca-logo.png") -->
-            <img src="img/Logo-BCA-PNG-1024x768.png" 
-                 onerror="this.onerror=null;this.src='https://placehold.co/32x32/da291c/ffffff?text=BANK'" 
+            <!-- Logo BCA Placeholder -->
+            <img src="https://placehold.co/32x32/da291c/ffffff?text=BCA" 
                  alt="Logo BCA" 
-                 class="h-8 w-8 object-contain mb-2"/>
+                 class="h-8 w-8 object-contain mb-2 mx-auto"/>
 
             <p class="text-xl font-elegant font-bold mb-2 text-gray-900">BCA</p>
             <p class="text-sm text-gray-500">A.N. DERA SYALINDA</p>
@@ -629,8 +674,7 @@
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
     </button>
     
-    <!-- Iframe Musik Latar (Hidden) -->
-    <!-- Catatan: Ganti URL di bawah dengan musik YouTube yang sesuai (pastikan loop=1) -->
+    <!-- Iframe Musik Latar (Hidden) - MEMASTIKAN NAMA FILE MUSIK SAMA -->
     <iframe 
         id="bgMusic" 
         width="0" 
@@ -643,21 +687,42 @@
     </iframe>
 
 <script>
-    // Global variable for the music iframe
+    // Global variables
     const bgMusic = document.getElementById('bgMusic');
     const audioControlBtn = document.getElementById('audioControlBtn');
     const iconMute = document.getElementById('icon-mute');
     const iconUnmute = document.getElementById('icon-unmute');
     const openingScreen = document.getElementById('opening-screen');
     const openInvitationBtn = document.getElementById('open-invitation-btn');
-
-
+    const guestNameDisplay = document.getElementById('guest-name'); 
     
-
     let isMuted = true; // Start muted
 
+    // --- LOGIC 0: Guest Name Display ---
+    
+    // Fungsi untuk mengambil nama tamu dari URL (contoh sederhana: ?to=Nama%20Tamu)
+    function getGuestName() {
+        const urlParams = new URLSearchParams(window.location.search);
+        let name = urlParams.get('to') || urlParams.get('kepada');
+        
+        if (name) {
+            name = decodeURIComponent(name.replace(/\+/g, ' '));
+            return name;
+        }
+        return 'Tamu Undangan'; 
+    }
+    
+    // Tampilkan nama tamu saat DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', () => {
+        const guestName = getGuestName();
+        if (guestNameDisplay) {
+            guestNameDisplay.textContent = guestName;
+        }
+    });
+
     // --- LOGIC 1: Countdown Timer ---
-    const eventDate = new Date("November 2, 2025 16:00:00").getTime();
+    // Menggunakan waktu 19:30 WIB (12:30:00 UTC) untuk Resepsi
+    const eventDate = new Date("November 2, 2025 19:30:00 GMT+0700").getTime(); 
 
     const updateCountdown = () => {
         const now = new Date().getTime();
@@ -666,6 +731,7 @@
 
         if (distance < 0) {
             if (countdownElement) {
+                // Tampilkan pesan jika acara telah lewat
                 countdownElement.innerHTML = '<p class="text-xl font-elegant text-gold-accent">Kami Telah Menikah! Alhamdulillah.</p>';
             }
             return;
@@ -686,31 +752,30 @@
     setInterval(updateCountdown, 1000);
     updateCountdown(); 
 
-    // --- LOGIC 2: Audio Control & Invitation Open ---
+    // --- LOGIC 2: Audio Control & Invitation Open (UPDATED) ---
     
-    // Function to unmute the music iframe
     const unmuteMusic = () => {
-        // Change src to unmute (mute=0) and reload iframe (key to forcing playback after user interaction)
-        const url = bgMusic.src.replace('mute=1', 'mute=0');
-        bgMusic.src = url; // Reassigning src forces it to load and play unmuted
+        bgMusic.src = 'img/Timeline 1.mp3'; // Memastikan nama file tidak berubah
+        
+        // Coba putar musik, tangani jika browser memblokir (autoplay policy)
+        bgMusic.onload = () => {
+            bgMusic.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+        };
+
         isMuted = false;
         iconMute.classList.add('hidden');
         iconUnmute.classList.remove('hidden');
-        console.log("Music Unmuted.");
+        console.log("Music Unmuted (Attempted to play audio).");
     }
 
-    // Function to mute the music iframe
     const muteMusic = () => {
-        // Change src to mute (mute=1)
-        const url = bgMusic.src.replace('mute=0', 'mute=1');
-        bgMusic.src = url;
+        bgMusic.src = "about:blank"; // Mematikan musik dengan memuat halaman kosong
         isMuted = true;
         iconMute.classList.remove('hidden');
         iconUnmute.classList.add('hidden');
         console.log("Music Muted.");
     }
 
-    // Handler for audio button click
     audioControlBtn.addEventListener('click', () => {
         if (isMuted) {
             unmuteMusic();
@@ -719,11 +784,32 @@
         }
     });
 
+    // Function to run the Hero section animation after the overlay is dismissed
+    const animateHero = () => {
+        const heroElements = [
+            document.getElementById('hero-title'),
+            document.getElementById('hero-names'),
+            document.getElementById('hero-date'),
+            document.getElementById('hero-scroll-prompt'),
+        ];
+
+        // Apply staggered animation using the custom keyframe class
+        heroElements.forEach((el, index) => {
+            if (el) {
+                setTimeout(() => {
+                    el.classList.add('intro-text-animate');
+                    el.classList.remove('opacity-0');
+                }, 100 + (index * 250)); // Staggered delay
+            }
+        });
+    }
+
+
     // Handler for 'Buka Undangan' button
     openInvitationBtn.addEventListener('click', (e) => {
         e.preventDefault();
         
-        // 1. Unmute music
+        // 1. Unmute music 
         unmuteMusic(); 
         
         // 2. Hide opening screen with transition
@@ -732,7 +818,10 @@
         // 3. Allow scrolling on the body
         document.body.classList.remove('no-scroll');
 
-        // 4. Smooth scroll to the Hero section 
+        // 4. Trigger the elegant hero animation immediately after the overlay starts hiding
+        animateHero(); 
+
+        // 5. Smooth scroll to the Hero section
         setTimeout(() => {
              document.getElementById('hero-section').scrollIntoView({ behavior: 'smooth' });
         }, 500); 
@@ -748,12 +837,19 @@
         tempInput.value = textToCopy;
         document.body.appendChild(tempInput);
         tempInput.select();
-        document.execCommand('copy');
+        
+        try {
+            document.execCommand('copy');
+            statusEl.textContent = `Nomor rekening ${textToCopy} berhasil disalin!`;
+            statusEl.classList.remove('hidden', 'text-red-600');
+            statusEl.classList.add('text-green-600');
+        } catch (err) {
+            statusEl.textContent = `Gagal menyalin. Silakan salin manual: ${textToCopy}`;
+            statusEl.classList.remove('hidden', 'text-green-600');
+            statusEl.classList.add('text-red-600');
+        }
         document.body.removeChild(tempInput);
         
-        // Show status message
-        statusEl.textContent = `Nomor rekening ${textToCopy} berhasil disalin!`;
-        statusEl.classList.remove('hidden');
         setTimeout(() => {
             statusEl.classList.add('hidden');
         }, 3000);
@@ -765,6 +861,7 @@
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
+                // Tambahkan delay berdasarkan index (opsional, sudah diatur di HTML)
                 entry.target.classList.add('visible');
                 observer.unobserve(entry.target); 
             }
@@ -784,11 +881,6 @@
         } else {
             scrollToTopBtn.style.opacity = '0';
         }
-        
-        // Show user ID after initial scroll
-        if (window.scrollY > 100) {
-            document.getElementById('user-id-display').classList.remove('hidden');
-        }
     });
 
     scrollToTopBtn.addEventListener('click', () => {
@@ -801,6 +893,7 @@
     // Fallback error handler for images
     function onImageError(element) {
         element.onerror = null;
+        // Placeholder dengan warna Gold/Cream
         element.src = 'https://placehold.co/400x400/B89955/FBF9F6?text=Gagal+Memuat+Foto';
     }
 
