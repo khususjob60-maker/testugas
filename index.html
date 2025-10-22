@@ -14,8 +14,12 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, addDoc, setDoc, onSnapshot, collection, query, orderBy, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        
         // Mengaktifkan log debug untuk Firestore (Wajib)
         setLogLevel('Debug');
+
+
+        
 
         // Global variables for Firebase (MANDATORY USE)
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -24,6 +28,7 @@
 
         let db, auth, userId;
 
+        
         const initFirebase = async () => {
             try {
                 const app = initializeApp(firebaseConfig);
@@ -54,10 +59,20 @@
             }
         };
 
-        // --- FIREBASE FIRESTORE FUNCTIONS (RSVP & UCAPAN) ---
 
-        // Collection path for public data (Guestbook)
-        // /artifacts/{appId}/public/data/wedding_guests
+ constfirebaseConfig = {
+  apiKey: "AIzaSyChyLARaL03l1bg4XA-AbnAni59vESTPss",
+  authDomain: "diaod-7b4bd.firebaseapp.com",
+  projectId: "diaod-7b4bd",
+  storageBucket: "diaod-7b4bd.firebasestorage.app",
+  messagingSenderId: "529755250173",
+  appId: "1:529755250173:web:eee59e2e695c484fb50d94",
+  measurementId: "G-JS4BVTK9JC"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
         const GUESTBOOK_COLLECTION_PATH = `artifacts/${appId}/public/data/wedding_guests`;
 
         /**
@@ -102,7 +117,7 @@
                 statusMessage.classList.add('text-green-600');
                 
                 // Reset form
-                e.target.reset();
+                e.target.reset();b
 
             } catch (error) {
                 console.error("Error submitting guestbook:", error);
@@ -182,13 +197,12 @@
         .text-gold-accent { color: var(--color-gold-accent); }
         .border-gold-accent { border-color: var(--color-gold-accent); }
 
-        /* Penggunaan Latar Belakang - Hanya digunakan untuk latar utama dan layar pembuka */
-        /* FILE: img/Background.JPG */
+        /* Penggunaan Latar Belakang Hero Section (Parallax) */
         #hero-section {
-            background-image: url('img/DSCF9129 (1).JPG'); 
+            background-image: url('img/Background.JPG'); 
             background-size: cover;
             background-position: center center;
-            background-attachment: fixed; /* Parallax effect */
+            background-attachment: fixed; /* Efek Parallax (Bermasalah di iOS) */
         }
         
         /* Custom Keyframes for elegant entrance */
@@ -217,9 +231,12 @@
             height: 100vh;
             /* Latar belakang JPG sesuai permintaan (dipisahkan dari foto konten) */
             background-image: url('img/DSCF9129 (1).JPG'); 
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
+            
+            /* Menggunakan 'cover' untuk layar pembuka (agar selalu penuh) */
+            background-size: cover; 
+            background-position: center top; 
+            background-repeat: no-repeat; 
+
             z-index: 10000; 
             display: flex;
             flex-direction: column;
@@ -297,6 +314,21 @@
             display: block;
             visibility: hidden;
             pointer-events: none;
+        }
+
+        /* --- PERBAIKAN KRUSIAL KHUSUS UNTUK MOBILE (Maksimal 768px lebar layar) --- */
+        @media (max-width: 768px) {
+            /* PERBAIKAN BUG IOS/IPHONE */
+            #hero-section {
+                /* Menonaktifkan fixed attachment di mobile untuk menghindari 'ngezoom' dan jittering */
+                background-attachment: scroll !important; /* Gunakan !important untuk memastikan override di iOS */
+                background-position: center center !important; 
+            }
+            
+            /* Untuk Layar Pembuka (memastikan fokus di atas agar kepala tidak terpotong) */
+            #opening-screen {
+                 background-position: center top !important;
+            }
         }
     </style>
 </head>
@@ -377,14 +409,14 @@
             <!-- Elemen Hero Utama (Akan dianimasikan oleh JS saat overlay hilang) -->
             <p class="text-xl font-elegant mb-3 tracking-widest text-gold-accent opacity-0" id="hero-title">We Are Getting Married</p>
             <h2 class="text-7xl md:text-9xl font-elegant font-bold mb-4 leading-tight opacity-0" id="hero-names">
-                DIO & DERA
+                DIO <span class="text-gold-accent">&</span> DERA
             </h2>
             <p class="text-xl md:text-2xl font-light mb-8 opacity-0" id="hero-date">
                 02 November 2025
             </p>
             
             <div class="mt-12 opacity-0" id="hero-scroll-prompt">
-                 <p class="text-sm text-gray-200 uppercase tracking-widest">Geser ke bawah kalo ikak kepo.</p>
+                 <p class="text-sm text-gray-200 uppercase tracking-widest">Geser ke bawah .</p>
             </div>
            
         </div>
@@ -492,7 +524,7 @@
                 <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-gold-accent fade-in-on-scroll" style="transition-delay: 0.2s;">
                     <div class="flex items-center space-x-4 mb-4">
                          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gold-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-                        <h3 class="text-2xl font-elegant font-bold text-gray-900">Akad Pernikahan</h3>
+                        <h3 class="text-2xl font-elegant font-bold text-gray-900">akad Pernikahan</h3>
                     </div>
                     <p class="text-xl font-semibold text-gray-800 mb-2">Minggu, 02 November 2025</p>
                     <p class="text-lg text-gray-600 mb-4">Pukul 19:30 WIB - Selesai</p>
@@ -620,7 +652,7 @@
         <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-gold-accent/70 fade-in-on-scroll" style="transition-delay: 0.1s;">
             
             <!-- Logo MANDIRI Placeholder -->
-            <img src="https://placehold.co/32x32/004c8f/ffffff?text=MANDIRI" 
+            <img src="img/Bank_Mandiri_logo_2016.svg.png" 
                  alt="Logo Mandiri" 
                  class="h-8 w-8 object-contain mb-2 mx-auto"/>
             
@@ -636,7 +668,7 @@
         <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-gold-accent/70 fade-in-on-scroll" style="transition-delay: 0.3s;">
             
             <!-- Logo BCA Placeholder -->
-            <img src="https://placehold.co/32x32/da291c/ffffff?text=BCA" 
+            <img src="img/Logo-BCA-PNG-1024x768.png" 
                  alt="Logo BCA" 
                  class="h-8 w-8 object-contain mb-2 mx-auto"/>
 
@@ -675,21 +707,13 @@
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
     </button>
     
-    <!-- Iframe Musik Latar (Hidden) - MEMASTIKAN NAMA FILE MUSIK SAMA -->
-    <iframe 
-        id="bgMusic" 
-        width="0" 
-        height="0" 
-        src="img/Timeline 1.mp3" 
-        frameborder="0" 
-        allow="autoplay; encrypted-media" 
-        allowfullscreen
-        style="display: none;">
-    </iframe>
+    <!-- AUDIO MUSIK LATAR -->
+    <audio id="bgMusic" src="img/Timeline 1.mp3" loop preload="auto" style="display: none;"></audio>
+
 
 <script>
     // Global variables
-    const bgMusic = document.getElementById('bgMusic');
+    const bgMusic = document.getElementById('bgMusic'); 
     const audioControlBtn = document.getElementById('audioControlBtn');
     const iconMute = document.getElementById('icon-mute');
     const iconUnmute = document.getElementById('icon-unmute');
@@ -753,15 +777,15 @@
     setInterval(updateCountdown, 1000);
     updateCountdown(); 
 
-    // --- LOGIC 2: Audio Control & Invitation Open (UPDATED) ---
+    // --- LOGIC 2: Audio Control & Invitation Open ---
     
     const unmuteMusic = () => {
-        bgMusic.src = 'img/Timeline 1.mp3'; // Memastikan nama file tidak berubah
-        
-        // Coba putar musik, tangani jika browser memblokir (autoplay policy)
-        bgMusic.onload = () => {
-            bgMusic.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
-        };
+        // Menggunakan method play() dari elemen Audio HTML5, yang diizinkan setelah interaksi pengguna
+        bgMusic.play().then(() => {
+            console.log("Music Play Succeeded.");
+        }).catch(error => {
+            console.error("Music Play Failed (Browser Policy - Pastikan ada interaksi pengguna):", error);
+        });
 
         isMuted = false;
         iconMute.classList.add('hidden');
@@ -770,7 +794,7 @@
     }
 
     const muteMusic = () => {
-        bgMusic.src = "about:blank"; // Mematikan musik dengan memuat halaman kosong
+        bgMusic.pause(); // Menggunakan method pause() dari elemen Audio HTML5
         isMuted = true;
         iconMute.classList.remove('hidden');
         iconUnmute.classList.add('hidden');
@@ -810,7 +834,7 @@
     openInvitationBtn.addEventListener('click', (e) => {
         e.preventDefault();
         
-        // 1. Unmute music 
+        // 1. Unmute music (AKAN DIPUTAR SAAT INI)
         unmuteMusic(); 
         
         // 2. Hide opening screen with transition
